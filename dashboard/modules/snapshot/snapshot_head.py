@@ -31,7 +31,7 @@ class RayActivityStatus(str, enum.Enum):
     ERROR = "ERROR"
 
 
-class RayActivityResponse(BaseModel, extra=Extra.allow):
+class RayActivityResponse(BaseModel, extra="allow"):
     """
     Pydantic model used to inform if a particular Ray component can be considered
     active, and metadata about observation.
@@ -218,9 +218,11 @@ class APIHead(dashboard_utils.DashboardHeadModule):
             )
             return RayActivityResponse(
                 is_active=is_active,
-                reason=f"Number of active drivers: {num_active_drivers}"
-                if num_active_drivers
-                else None,
+                reason=(
+                    f"Number of active drivers: {num_active_drivers}"
+                    if num_active_drivers
+                    else None
+                ),
                 timestamp=current_timestamp,
                 # If latest_job_end_time == 0, no jobs have finished yet so don't
                 # populate last_activity_at

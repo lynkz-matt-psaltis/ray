@@ -44,13 +44,6 @@ class MockBaseModel:
 
 def _make_mock_pydantic_modules(pydantic_version: str) -> Dict:
     """Make a mock for the `pydantic` module.
-
-    This module requires special handling to:
-        - Make `BaseModel` a class object so type hints work.
-        - Set the `__version__` attribute appropriately.
-        - Also mock `pydantic.v1` for `pydantic >= 2.0`.
-        - Also mock `pydantic.dataclasses`.
-
     Returns a dict of mocked modules.
     """
     mock_modules = {
@@ -58,16 +51,12 @@ def _make_mock_pydantic_modules(pydantic_version: str) -> Dict:
         "pydantic.dataclasses": mock.MagicMock(),
     }
     mock_modules["pydantic"].BaseModel = MockBaseModel
-    if packaging.version.parse(pydantic_version) >= packaging.version.parse("1.9.0"):
-        mock_modules["pydantic"].__version__ = pydantic_version
-
-    if packaging.version.parse(pydantic_version) >= packaging.version.parse("2.0.0"):
-        mock_modules["pydantic.v1"] = mock_modules["pydantic"]
+    mock_modules["pydantic"].__version__ = pydantic_version
 
     return mock_modules
 
 
-@pytest.mark.parametrize("pydantic_version", ["1.8.0", "1.9.0", "2.0.0"])
+@pytest.mark.parametrize("pydantic_version", ["2.0.0"])
 @pytest.mark.skipif(
     os.environ.get("RAY_MINIMAL", "0") != "1",
     reason="Skip unless running in a minimal install.",

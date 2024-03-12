@@ -4,13 +4,12 @@ aiohttp
 aiohttp_cors
 aiorwlock
 aiosignal
-anyio==3.7.1
 anyscale
 bitsandbytes
 boto3
 click
 colorful
-cupy-cuda12x == 12.1.0
+cupy-cuda100
 dataset
 deepspeed
 diffusers
@@ -29,9 +28,9 @@ gymnasium
 huggingface_hub
 ipywidgets
 jinja2
-jsonschema==4.17.3
-keras==2.15.0
+jsonschema
 kubernetes
+tensorflow
 lz4
 matplotlib
 msgpack
@@ -43,17 +42,17 @@ opentelemetry-sdk
 packaging
 pandas
 peft
-prometheus_client >= 0.18.0
+prometheus_client
 protobuf
 py-spy
 pyarrow
 pybuildkite
-pydantic >= 2.0
-pytest < 8.0
+pydantic
 python-dotenv
 pytorch-lightning
 pytz
 pyyaml
+ray
 requests
 retry
 rich
@@ -68,7 +67,7 @@ tensorboardX
 tensorflow
 tensorflow-probability
 toml
-torch==2.1.2
+torch
 torchmetrics
 torchvision
 transformers

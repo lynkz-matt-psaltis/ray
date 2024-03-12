@@ -558,14 +558,14 @@ def deployment_to_schema(
 
     deployment_options = {
         "name": d.name,
-        "num_replicas": None
-        if d._deployment_config.autoscaling_config
-        else d.num_replicas,
+        "num_replicas": (
+            None if d._deployment_config.autoscaling_config else d.num_replicas
+        ),
         "max_concurrent_queries": d.max_ongoing_requests,
         "max_ongoing_requests": d.max_ongoing_requests,
         "max_queued_requests": d.max_queued_requests,
         "user_config": d.user_config,
-        "autoscaling_config": d._deployment_config.autoscaling_config,
+        "autoscaling_config": d._deployment_config.autoscaling_config.model_dump(),
         "graceful_shutdown_wait_loop_s": d._deployment_config.graceful_shutdown_wait_loop_s,  # noqa: E501
         "graceful_shutdown_timeout_s": d._deployment_config.graceful_shutdown_timeout_s,
         "health_check_period_s": d._deployment_config.health_check_period_s,

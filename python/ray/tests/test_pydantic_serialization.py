@@ -7,9 +7,7 @@ import pytest
 from fastapi import FastAPI
 
 try:
-    # Testing with Pydantic 2
     from pydantic import BaseModel as BaseModelV2
-    from pydantic.v1 import BaseModel as BaseModelV1
 
     BASE_MODELS = [BaseModelV1, BaseModelV2]
 except ImportError:

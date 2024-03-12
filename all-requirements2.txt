@@ -4,7 +4,6 @@ aiohttp
 aiohttp_cors
 aiorwlock
 aiosignal
-anyio==3.7.1
 anyscale
 bitsandbytes
 boto3
@@ -29,7 +28,7 @@ gymnasium
 huggingface_hub
 ipywidgets
 jinja2
-jsonschema==4.17.3
+jsonschema
 keras==2.15.0
 kubernetes
 lz4
@@ -54,6 +53,7 @@ python-dotenv
 pytorch-lightning
 pytz
 pyyaml
+ray
 requests
 retry
 rich

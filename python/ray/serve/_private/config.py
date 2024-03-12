@@ -36,6 +36,7 @@ from ray.serve.generated.serve_pb2 import EncodingType as EncodingTypeProto
 from ray.serve.generated.serve_pb2 import LoggingConfig as LoggingConfigProto
 from ray.serve.generated.serve_pb2 import ReplicaConfig as ReplicaConfigProto
 from ray.util.placement_group import VALID_PLACEMENT_GROUP_STRATEGIES
+from pydantic import ConfigDict, field_validator
 
 
 def _needs_pickle(deployment_language: DeploymentLanguage, is_cross_language: bool):
@@ -113,40 +114,55 @@ class DeploymentConfig(BaseModel):
     """
 
     num_replicas: Optional[NonNegativeInt] = Field(
-        default=1, update_type=DeploymentOptionUpdateType.LightWeight
+        default=1,
+        json_schema_extra={"update_type": DeploymentOptionUpdateType.LightWeight},
     )
     max_ongoing_requests: PositiveInt = Field(
         default=DEFAULT_MAX_ONGOING_REQUESTS,
-        update_type=DeploymentOptionUpdateType.NeedsReconfigure,
+        json_schema_extra={
+            "update_type": DeploymentOptionUpdateType.NeedsReconfigure,
+        },
     )
     max_queued_requests: int = Field(
         default=-1,
-        update_type=DeploymentOptionUpdateType.LightWeight,
+        validate_default=True,
+        json_schema_extra={
+            "update_type": DeploymentOptionUpdateType.LightWeight,
+        },
     )
     user_config: Any = Field(
-        default=None, update_type=DeploymentOptionUpdateType.NeedsActorReconfigure
+        default=None,
+        validate_default=True,
+        json_schema_extra={
+            "update_type": DeploymentOptionUpdateType.NeedsActorReconfigure
+        },
     )
 
     graceful_shutdown_timeout_s: NonNegativeFloat = Field(
         default=DEFAULT_GRACEFUL_SHUTDOWN_TIMEOUT_S,
-        update_type=DeploymentOptionUpdateType.NeedsReconfigure,
+        json_schema_extra={"update_type": DeploymentOptionUpdateType.NeedsReconfigure},
     )
     graceful_shutdown_wait_loop_s: NonNegativeFloat = Field(
         default=DEFAULT_GRACEFUL_SHUTDOWN_WAIT_LOOP_S,
-        update_type=DeploymentOptionUpdateType.NeedsActorReconfigure,
+        json_schema_extra={
+            "update_type": DeploymentOptionUpdateType.NeedsActorReconfigure
+        },
     )
 
     health_check_period_s: PositiveFloat = Field(
         default=DEFAULT_HEALTH_CHECK_PERIOD_S,
-        update_type=DeploymentOptionUpdateType.NeedsReconfigure,
+        json_schema_extra={"update_type": DeploymentOptionUpdateType.NeedsReconfigure},
     )
     health_check_timeout_s: PositiveFloat = Field(
         default=DEFAULT_HEALTH_CHECK_TIMEOUT_S,
-        update_type=DeploymentOptionUpdateType.NeedsReconfigure,
+        json_schema_extra={"update_type": DeploymentOptionUpdateType.NeedsReconfigure},
     )
 
     autoscaling_config: Optional[AutoscalingConfig] = Field(
-        default=None, update_type=DeploymentOptionUpdateType.NeedsActorReconfigure
+        default=None,
+        json_schema_extra={
+            "update_type": DeploymentOptionUpdateType.NeedsActorReconfigure
+        },
     )
 
     # This flag is used to let replica know they are deployed from
@@ -159,22 +175,24 @@ class DeploymentConfig(BaseModel):
 
     version: Optional[str] = Field(
         default=None,
-        update_type=DeploymentOptionUpdateType.HeavyWeight,
+        json_schema_extra={"update_type": DeploymentOptionUpdateType.HeavyWeight},
     )
 
     logging_config: Optional[dict] = Field(
         default=None,
-        update_type=DeploymentOptionUpdateType.NeedsActorReconfigure,
+        validate_default=True,
+        json_schema_extra={
+            "update_type": DeploymentOptionUpdateType.NeedsActorReconfigure
+        },
     )
 
     # Contains the names of deployment options manually set by the user
     user_configured_option_names: Set[str] = set()
+    model_config = ConfigDict(
+        validate_assignment=True, arbitrary_types_allowed=True, extra="allow"
+    )
 
-    class Config:
-        validate_assignment = True
-        arbitrary_types_allowed = True
-
-    @validator("user_config", always=True)
+    @field_validator("user_config")
     def user_config_json_serializable(cls, v):
         if isinstance(v, bytes):
             return v
@@ -186,7 +204,7 @@ class DeploymentConfig(BaseModel):
 
         return v
 
-    @validator("logging_config", always=True)
+    @field_validator("logging_config")
     def logging_config_valid(cls, v):
         if v is None:
             return v
@@ -202,7 +220,7 @@ class DeploymentConfig(BaseModel):
 
         return v
 
-    @validator("max_queued_requests", always=True)
+    @field_validator("max_queued_requests")
     def validate_max_queued_requests(cls, v):
         if not isinstance(v, int):
             raise TypeError("max_queued_requests must be an integer.")
@@ -715,12 +733,16 @@ class ReplicaConfig:
             proto.init_args if proto.init_args != b"" else None,
             proto.init_kwargs if proto.init_kwargs != b"" else None,
             json.loads(proto.ray_actor_options),
-            json.loads(proto.placement_group_bundles)
-            if proto.placement_group_bundles
-            else None,
-            proto.placement_group_strategy
-            if proto.placement_group_strategy != ""
-            else None,
+            (
+                json.loads(proto.placement_group_bundles)
+                if proto.placement_group_bundles
+                else None
+            ),
+            (
+                proto.placement_group_strategy
+                if proto.placement_group_strategy != ""
+                else None
+            ),
             proto.max_replicas_per_node if proto.max_replicas_per_node else None,
             needs_pickle,
         )
@@ -737,13 +759,17 @@ class ReplicaConfig:
             init_args=self.serialized_init_args,
             init_kwargs=self.serialized_init_kwargs,
             ray_actor_options=json.dumps(self.ray_actor_options),
-            placement_group_bundles=json.dumps(self.placement_group_bundles)
-            if self.placement_group_bundles is not None
-            else "",
+            placement_group_bundles=(
+                json.dumps(self.placement_group_bundles)
+                if self.placement_group_bundles is not None
+                else ""
+            ),
             placement_group_strategy=self.placement_group_strategy,
-            max_replicas_per_node=self.max_replicas_per_node
-            if self.max_replicas_per_node is not None
-            else 0,
+            max_replicas_per_node=(
+                self.max_replicas_per_node
+                if self.max_replicas_per_node is not None
+                else 0
+            ),
         )
 
     def to_proto_bytes(self):

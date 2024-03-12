@@ -719,14 +719,7 @@ class TestAppBuilder:
     def test_pydantic_version_compatibility(self, use_v1_patch: bool):
         """Check compatibility with different pydantic versions."""
 
-        if use_v1_patch:
-            try:
-                # Only runs if installed pydantic version is >=2.5.0
-                from pydantic.v1 import BaseModel
-            except ImportError:
-                return
-        else:
-            from pydantic import BaseModel
+        from pydantic import BaseModel
 
         cat_dict = {"color": "orange", "age": 10}
 

@@ -12,7 +12,6 @@ from typing import Type
 import numpy as np
 import pytest
 from pydantic import BaseModel as BaseModelV2
-from pydantic.v1 import BaseModel as BaseModelV1
 
 import ray.cloudpickle as cloudpickle
 import ray.util.client.server.server as ray_client_server
@@ -690,7 +689,7 @@ def test_client_gpu_ids(call_ray_start_shared, set_enable_auto_connect):
             assert ray.get_gpu_ids() == []
 
 
-@pytest.mark.parametrize("BaseModel", [BaseModelV1, BaseModelV2])
+@pytest.mark.parametrize("BaseModel", [BaseModelV2])
 def test_client_serialize_addon(call_ray_start_shared, BaseModel: Type):
     class User(BaseModel):
         name: str

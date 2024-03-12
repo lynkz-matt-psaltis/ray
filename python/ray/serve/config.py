@@ -24,6 +24,7 @@ from ray.serve._private.constants import (
     SERVE_LOGGER_NAME,
 )
 from ray.util.annotations import Deprecated, PublicAPI
+from pydantic import ConfigDict, ValidationInfo, field_validator
 
 logger = logging.getLogger(SERVE_LOGGER_NAME)
 
@@ -38,7 +39,7 @@ class AutoscalingConfig(BaseModel):
     # Publicly exposed options
     min_replicas: NonNegativeInt = 1
     initial_replicas: Optional[NonNegativeInt] = None
-    max_replicas: PositiveInt = 1
+    max_replicas: PositiveInt = Field(default=1, validate_default=True)
 
     # DEPRECATED: replaced by target_ongoing_requests
     target_num_ongoing_requests_per_replica: PositiveFloat = Field(
@@ -82,10 +83,10 @@ class AutoscalingConfig(BaseModel):
     # Custom autoscaling config. Defaults to the request-based autoscaler.
     _policy: Union[str, Callable] = PrivateAttr(default=DEFAULT_AUTOSCALING_POLICY)
 
-    @validator("max_replicas", always=True)
+    @field_validator("max_replicas")
     def replicas_settings_valid(cls, max_replicas, values):
-        min_replicas = values.get("min_replicas")
-        initial_replicas = values.get("initial_replicas")
+        min_replicas = values.data.get("min_replicas")
+        initial_replicas = values.data.get("initial_replicas")
         if min_replicas is not None and max_replicas < min_replicas:
             raise ValueError(
                 f"max_replicas ({max_replicas}) must be greater than "
@@ -258,23 +259,26 @@ class HTTPOptions(BaseModel):
 
     host: Optional[str] = DEFAULT_HTTP_HOST
     port: int = DEFAULT_HTTP_PORT
-    middlewares: List[Any] = []
-    location: Optional[DeploymentMode] = DeploymentMode.HeadOnly
-    num_cpus: int = 0
+    middlewares: List[Any] = Field(default=[], validate_default=True)
+    location: Optional[DeploymentMode] = Field(
+        default=DeploymentMode.HeadOnly, validate_default=True
+    )
+    num_cpus: int = Field(default=0, validate_default=True)
     root_url: str = ""
     root_path: str = ""
     request_timeout_s: Optional[float] = None
     keep_alive_timeout_s: int = DEFAULT_UVICORN_KEEP_ALIVE_TIMEOUT_S
 
-    @validator("location", always=True)
+    @field_validator("location")
     def location_backfill_no_server(cls, v, values):
-        if values["host"] is None or v is None:
+        host = values.data.get("host")
+        if host is None or v is None:
             return DeploymentMode.NoServer
 
         return v
 
-    @validator("middlewares", always=True)
-    def warn_for_middlewares(cls, v, values):
+    @field_validator("middlewares")
+    def warn_for_middlewares(cls, v):
         if v:
             warnings.warn(
                 "Passing `middlewares` to HTTPOptions is deprecated and will be "
@@ -284,8 +288,8 @@ class HTTPOptions(BaseModel):
             )
         return v
 
-    @validator("num_cpus", always=True)
-    def warn_for_num_cpus(cls, v, values):
+    @field_validator("num_cpus")
+    def warn_for_num_cpus(cls, v):
         if v:
             warnings.warn(
                 "Passing `num_cpus` to HTTPOptions is deprecated and will be "
@@ -293,9 +297,7 @@ class HTTPOptions(BaseModel):
             )
         return v
 
-    class Config:
-        validate_assignment = True
-        arbitrary_types_allowed = True
+    model_config = ConfigDict(validate_assignment=True, arbitrary_types_allowed=True)
 
 
 @PublicAPI(stability="alpha")

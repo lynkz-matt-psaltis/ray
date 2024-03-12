@@ -7,12 +7,10 @@ from zlib import crc32
 
 from ray._private.pydantic_compat import (
     BaseModel,
-    Extra,
     Field,
     NonNegativeInt,
     PositiveInt,
     StrictInt,
-    root_validator,
     validator,
 )
 from ray._private.runtime_env.packaging import parse_uri
@@ -35,6 +33,7 @@ from ray.serve._private.deployment_info import DeploymentInfo
 from ray.serve._private.utils import DEFAULT
 from ray.serve.config import ProxyLocation
 from ray.util.annotations import PublicAPI
+from pydantic import field_validator, ConfigDict, model_validator
 
 # Shared amongst multiple schemas.
 TARGET_CAPACITY_FIELD = Field(
@@ -110,8 +109,7 @@ class LoggingConfig(BaseModel):
                     return "Hello world!"
     """
 
-    class Config:
-        extra = Extra.forbid
+    model_config = ConfigDict(extra="forbid")
 
     encoding: Union[str, EncodingType] = Field(
         default_factory=lambda: RAY_SERVE_LOG_ENCODING,
@@ -143,7 +141,8 @@ class LoggingConfig(BaseModel):
         ),
     )
 
-    @validator("encoding")
+    @field_validator("encoding")
+    @classmethod
     def valid_encoding_format(cls, v):
         if v not in list(EncodingType):
             raise ValueError(
@@ -153,7 +152,8 @@ class LoggingConfig(BaseModel):
 
         return v
 
-    @validator("log_level")
+    @field_validator("log_level")
+    @classmethod
     def valid_log_level(cls, v):
         if isinstance(v, int):
             if v not in logging._levelToName:
@@ -242,7 +242,8 @@ class RayActorOptionsSchema(BaseModel):
         ),
     )
 
-    @validator("runtime_env")
+    @field_validator("runtime_env")
+    @classmethod
     def runtime_env_contains_remote_uris(cls, v):
         # Ensure that all uris in py_modules and working_dir are remote
 
@@ -268,7 +269,7 @@ class RayActorOptionsSchema(BaseModel):
 
 
 @PublicAPI(stability="stable")
-class DeploymentSchema(BaseModel, allow_population_by_field_name=True):
+class DeploymentSchema(BaseModel):
     """
     Specifies options for one deployment within a Serve application. For each deployment
     this can optionally be included in `ServeApplicationSchema` to override deployment
@@ -410,7 +411,7 @@ class DeploymentSchema(BaseModel, allow_population_by_field_name=True):
         description="Logging config for configuring serve deployment logs.",
     )
 
-    @root_validator
+    @model_validator(mode="before")
     def validate_num_replicas_and_autoscaling_config(cls, values):
         num_replicas = values.get("num_replicas", None)
         autoscaling_config = values.get("autoscaling_config", None)
@@ -432,7 +433,7 @@ class DeploymentSchema(BaseModel, allow_population_by_field_name=True):
 
         return values
 
-    @root_validator
+    @model_validator(mode="before")
     def validate_max_queued_requests(cls, values):
         max_queued_requests = values.get("max_queued_requests", None)
         if max_queued_requests is None or max_queued_requests == DEFAULT.VALUE:
@@ -566,7 +567,8 @@ class ServeApplicationSchema(BaseModel):
     def deployment_names(self) -> List[str]:
         return [d.name for d in self.deployments]
 
-    @validator("runtime_env")
+    @field_validator("runtime_env")
+    @classmethod
     def runtime_env_contains_remote_uris(cls, v):
         # Ensure that all uris in py_modules and working_dir are remote.
         if v is None:
@@ -589,7 +591,8 @@ class ServeApplicationSchema(BaseModel):
 
         return v
 
-    @validator("import_path")
+    @field_validator("import_path")
+    @classmethod
     def import_path_format_valid(cls, v: str):
         if v is None:
             return
@@ -739,7 +742,8 @@ class ServeDeploySchema(BaseModel):
     )
     target_capacity: Optional[float] = TARGET_CAPACITY_FIELD
 
-    @validator("applications")
+    @field_validator("applications")
+    @classmethod
     def application_names_unique(cls, v):
         # Ensure there are no duplicate applications listed
         names = [app.name for app in v]
@@ -753,7 +757,8 @@ class ServeDeploySchema(BaseModel):
             )
         return v
 
-    @validator("applications")
+    @field_validator("applications")
+    @classmethod
     def application_routes_unique(cls, v):
         # Ensure each application with a non-null route prefix has unique route prefixes
         routes = [app.route_prefix for app in v if app.route_prefix is not None]
@@ -768,27 +773,28 @@ class ServeDeploySchema(BaseModel):
             )
         return v
 
-    @validator("applications")
+    @field_validator("applications")
+    @classmethod
     def application_names_nonempty(cls, v):
         for app in v:
             if len(app.name) == 0:
                 raise ValueError("Application names must be nonempty.")
         return v
 
-    @root_validator
+    @model_validator(mode="before")
     def nested_host_and_port(cls, values):
         # TODO (zcin): ServeApplicationSchema still needs to have host and port
         # fields to support single-app mode, but in multi-app mode the host and port
         # fields at the top-level deploy config is used instead. Eventually, after
         # migration, we should remove these fields from ServeApplicationSchema.
         for app_config in values.get("applications"):
-            if "host" in app_config.dict(exclude_unset=True):
+            if "host" in app_config:
                 raise ValueError(
                     f'Host "{app_config.host}" is set in the config for application '
                     f"`{app_config.name}`. Please remove it and set host in the top "
                     "level deploy config only."
                 )
-            if "port" in app_config.dict(exclude_unset=True):
+            if "port" in app_config:
                 raise ValueError(
                     f"Port {app_config.port} is set in the config for application "
                     f"`{app_config.name}`. Please remove it and set port in the top "
@@ -866,19 +872,20 @@ class ServeStatus:
 @PublicAPI(stability="stable")
 class ServeActorDetails(BaseModel, frozen=True):
     node_id: Optional[str] = Field(
-        description="ID of the node that the actor is running on."
+        description="ID of the node that the actor is running on.", default=None
     )
     node_ip: Optional[str] = Field(
-        description="IP address of the node that the actor is running on."
+        description="IP address of the node that the actor is running on.", default=None
     )
-    actor_id: Optional[str] = Field(description="Actor ID.")
+    actor_id: Optional[str] = Field(description="Actor ID.", default=None)
     actor_name: Optional[str] = Field(description="Actor name.")
-    worker_id: Optional[str] = Field(description="Worker ID.")
+    worker_id: Optional[str] = Field(description="Worker ID.", default=None)
     log_file_path: Optional[str] = Field(
         description=(
             "The relative path to the Serve actor's log file from the ray logs "
             "directory."
-        )
+        ),
+        default=None,
     )
 
 
@@ -888,7 +895,9 @@ class ReplicaDetails(ServeActorDetails, frozen=True):
 
     replica_id: str = Field(description="Unique ID for the replica.")
     state: ReplicaState = Field(description="Current state of the replica.")
-    pid: Optional[int] = Field(description="PID of the replica actor process.")
+    pid: Optional[int] = Field(
+        description="PID of the replica actor process.", default=None
+    )
     start_time_s: float = Field(
         description=(
             "The time at which the replica actor was started. If the controller dies, "
@@ -899,7 +908,7 @@ class ReplicaDetails(ServeActorDetails, frozen=True):
 
 
 @PublicAPI(stability="stable")
-class DeploymentDetails(BaseModel, extra=Extra.forbid, frozen=True):
+class DeploymentDetails(BaseModel, extra="forbid", frozen=True):
     """
     Detailed info about a deployment within a Serve application.
     """
@@ -935,7 +944,8 @@ class DeploymentDetails(BaseModel, extra=Extra.forbid, frozen=True):
         description="Details about the live replicas of this deployment."
     )
 
-    @validator("deployment_config")
+    @field_validator("deployment_config")
+    @classmethod
     def deployment_route_prefix_not_set(cls, v: DeploymentSchema):
         # Route prefix should not be set at the deployment level. Deployment-level route
         # prefix is outdated, there should be one route prefix per application
@@ -950,7 +960,7 @@ class DeploymentDetails(BaseModel, extra=Extra.forbid, frozen=True):
 
 
 @PublicAPI(stability="stable")
-class ApplicationDetails(BaseModel, extra=Extra.forbid, frozen=True):
+class ApplicationDetails(BaseModel, extra="forbid", frozen=True):
     """Detailed info about a Serve application."""
 
     name: str = Field(description="Application name.")
@@ -1013,7 +1023,7 @@ class ProxyDetails(ServeActorDetails, frozen=True):
 
 
 @PublicAPI(stability="stable")
-class ServeInstanceDetails(BaseModel, extra=Extra.forbid):
+class ServeInstanceDetails(BaseModel, extra="forbid"):
     """
     Serve metadata with system-level info and details on all applications deployed to
     the Ray cluster.

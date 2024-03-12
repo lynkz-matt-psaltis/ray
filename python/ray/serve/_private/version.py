@@ -126,15 +126,21 @@ class DeploymentVersion:
             code_version=self.code_version,
             deployment_config=self.deployment_config.to_proto(),
             ray_actor_options=json.dumps(self.ray_actor_options),
-            placement_group_bundles=json.dumps(self.placement_group_bundles)
-            if self.placement_group_bundles is not None
-            else "",
-            placement_group_strategy=self.placement_group_strategy
-            if self.placement_group_strategy is not None
-            else "",
-            max_replicas_per_node=self.max_replicas_per_node
-            if self.max_replicas_per_node is not None
-            else 0,
+            placement_group_bundles=(
+                json.dumps(self.placement_group_bundles)
+                if self.placement_group_bundles is not None
+                else ""
+            ),
+            placement_group_strategy=(
+                self.placement_group_strategy
+                if self.placement_group_strategy is not None
+                else ""
+            ),
+            max_replicas_per_node=(
+                self.max_replicas_per_node
+                if self.max_replicas_per_node is not None
+                else 0
+            ),
         )
 
     @classmethod
@@ -163,15 +169,10 @@ class DeploymentVersion:
         should prompt a deployment version update.
         """
         reconfigure_dict = {}
-        # TODO(aguo): Once we only support pydantic 2, we can remove this if check.
-        # In pydantic 2.0, `__fields__` has been renamed to `model_fields`.
-        fields = (
-            self.deployment_config.model_fields
-            if hasattr(self.deployment_config, "model_fields")
-            else self.deployment_config.__fields__
-        )
+        schema = self.deployment_config.model_json_schema()
+        fields = schema.get("properties")
         for option_name, field in fields.items():
-            option_weight = field.field_info.extra.get("update_type")
+            option_weight = field.get("update_type")
             if option_weight in update_types:
                 reconfigure_dict[option_name] = getattr(
                     self.deployment_config, option_name

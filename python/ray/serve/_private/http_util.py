@@ -14,7 +14,6 @@ from starlette.types import ASGIApp, Message, Receive, Scope, Send
 from uvicorn.config import Config
 from uvicorn.lifespan.on import LifespanOn
 
-from ray._private.pydantic_compat import IS_PYDANTIC_2
 from ray.serve._private.constants import SERVE_LOGGER_NAME
 from ray.serve._private.utils import serve_encoders
 from ray.serve.exceptions import RayServeException
@@ -348,19 +347,6 @@ def make_fastapi_class_based_view(fastapi_app, cls: Type) -> None:
     for route in fastapi_app.routes:
         if not isinstance(route, (APIRoute, APIWebSocketRoute)):
             continue
-
-        # If there is a response model, FastAPI creates a copy of the fields.
-        # But FastAPI creates the field incorrectly by missing the outer_type_.
-        if (
-            # TODO(edoakes): I don't think this check is complete because we need
-            # to support v1 models in v2 (from pydantic.v1 import *).
-            not IS_PYDANTIC_2
-            and isinstance(route, APIRoute)
-            and route.response_model
-        ):
-            route.secure_cloned_response_field.outer_type_ = (
-                route.response_field.outer_type_
-            )
 
         # Remove endpoints that belong to other class based views.
         serve_cls = getattr(route.endpoint, "_serve_cls", None)
